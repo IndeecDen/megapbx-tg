@@ -20,6 +20,8 @@
 
 Рекомендуемый способ — скачать зафиксированный тег, сохранить installer локально и только затем запускать от root. Не используйте `curl | sudo bash`: так сложнее проверить код и вводить секреты.
 
+Для публичного репозитория:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/IndeecDen/megapbx-tg/megapbx-tg-v0.1.1/install.sh -o /tmp/megapbx-tg-install.sh && sudo bash /tmp/megapbx-tg-install.sh
 ```
