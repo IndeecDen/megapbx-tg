@@ -24,6 +24,27 @@
 curl -fsSL https://raw.githubusercontent.com/IndeecDen/megapbx-tg/megapbx-tg-v0.1.1/install.sh -o /tmp/megapbx-tg-install.sh && sudo bash /tmp/megapbx-tg-install.sh
 ```
 
+### Если репозиторий закрыт (`private`)
+
+GitHub не разрешает анонимный `raw.githubusercontent.com` для private-репозитория. Используйте fine-grained PAT с доступом только **Contents: Read** для этого репозитория и передайте его установщику через файл с правами `0600`:
+
+```bash
+sudo install -m 600 /dev/null /root/.megapbx-github-token
+sudoedit /root/.megapbx-github-token       # вставить PAT
+curl -fsSL -H "Authorization: Bearer $(cat /root/.megapbx-github-token)" \
+  https://raw.githubusercontent.com/IndeecDen/megapbx-tg/megapbx-tg-v0.1.1/install.sh \
+  -o /tmp/megapbx-tg-install.sh
+sudo bash /tmp/megapbx-tg-install.sh --github-token-file /root/.megapbx-github-token
+```
+
+После успешной установки файл с PAT можно удалить:
+
+```bash
+sudo rm -f /root/.megapbx-github-token
+```
+
+Для анонимной команды без PAT сначала сделайте репозиторий публичным; это изменение видимости отдельно не выполняется installer-ом.
+
 Установщик:
 
 1. проверит Debian/Ubuntu и systemd;

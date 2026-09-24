@@ -22,6 +22,8 @@ PYTHON_BIN="${MEGAPBX_TG_PYTHON:-}"
 PIP_INDEX_URL="${MEGAPBX_TG_PIP_INDEX_URL:-https://pypi.org/simple}"
 SOURCE_DIR="${MEGAPBX_TG_SOURCE_DIR:-}"
 ENV_FILE=""
+GITHUB_TOKEN_FILE="${MEGAPBX_TG_GITHUB_TOKEN_FILE:-}"
+GITHUB_TOKEN=""
 DOMAIN="${MEGAPBX_TG_DOMAIN:-}"
 TLS_EMAIL="${MEGAPBX_TG_TLS_EMAIL:-}"
 INSTALL_NGINX="${MEGAPBX_TG_INSTALL_NGINX:-0}"
@@ -45,6 +47,7 @@ NGINX_WAS_ACTIVE=0
 UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 NGINX_SITE="/etc/nginx/sites-available/${SERVICE_NAME}"
 NGINX_LINK="/etc/nginx/sites-enabled/${SERVICE_NAME}"
+CURL_AUTH_ARGS=()
 
 log() {
     printf '[%s] %s\n' "$SCRIPT_NAME" "$*"
@@ -66,6 +69,7 @@ Usage: sudo bash install.sh [options]
 Options:
   --version TAG              pinned release tag (default: megapbx-tg-v0.1.1)
   --env-file FILE            load a simple KEY=VALUE file without executing it
+  --github-token-file FILE   read-only GitHub token for private repository downloads
   --non-interactive          never prompt; all required values must be supplied
   --with-nginx               install/configure Nginx reverse proxy
   --no-nginx                 do not install/configure Nginx (default)
@@ -138,6 +142,11 @@ parse_args() {
                 ENV_FILE="$2"
                 shift 2
                 ;;
+            --github-token-file)
+                [[ $# -ge 2 ]] || die "--github-token-file requires a path"
+                GITHUB_TOKEN_FILE="$2"
+                shift 2
+                ;;
             --domain)
                 [[ $# -ge 2 ]] || die "--domain requires a hostname"
                 DOMAIN="$2"
@@ -195,6 +204,19 @@ parse_args() {
     done
 }
 
+load_github_token() {
+    [[ -n "$GITHUB_TOKEN_FILE" ]] || return 0
+    [[ -f "$GITHUB_TOKEN_FILE" && -r "$GITHUB_TOKEN_FILE" ]] || die "GitHub token file is not readable: $GITHUB_TOKEN_FILE"
+    local mode
+    mode="$(stat -c '%a' "$GITHUB_TOKEN_FILE" 2>/dev/null || printf '600')"
+    if (( (8#$mode & 077) != 0 )); then
+        die "GitHub token file must not be accessible by group/others: $GITHUB_TOKEN_FILE"
+    fi
+    IFS= read -r GITHUB_TOKEN < "$GITHUB_TOKEN_FILE" || true
+    [[ -n "$GITHUB_TOKEN" ]] || die "GitHub token file is empty"
+    CURL_AUTH_ARGS=(-H "Authorization: Bearer $GITHUB_TOKEN")
+}
+
 # Reads only simple KEY=VALUE lines. It intentionally does not source or eval files.
 load_env_file() {
     local file="$1"
@@ -223,7 +245,7 @@ load_env_file() {
             MEGAPBX_TG_BACKEND_PORT|MEGAPBX_TG_PUBLIC_BIND|MEGAPBX_TG_PYTHON| \
             MEGAPBX_TG_PIP_INDEX_URL|MEGAPBX_TG_SOURCE_DIR|MEGAPBX_TG_DOMAIN| \
             MEGAPBX_TG_TLS_EMAIL|MEGAPBX_TG_INSTALL_NGINX|MEGAPBX_TG_ENABLE_TLS| \
-            MEGAPBX_TG_ALLOW_ALL_DESTINATIONS|MEGAPBX_TG_ALLOW_HTTP_API) ;;
+            MEGAPBX_TG_GITHUB_TOKEN_FILE|MEGAPBX_TG_ALLOW_ALL_DESTINATIONS|MEGAPBX_TG_ALLOW_HTTP_API) ;;
             *) die "Unsupported key '$key' in $file" ;;
         esac
 
@@ -533,13 +555,13 @@ download_release() {
         local file
         for file in app.py requirements.txt requirements.lock LICENSE; do
             if ! curl --fail --silent --show-error --location --retry 3 --connect-timeout 20 \
-                --proto '=https' --tlsv1.2 "$base_url/$file" -o "$STAGE_DIR/$file"; then
+                "${CURL_AUTH_ARGS[@]}" --proto '=https' --tlsv1.2 "$base_url/$file" -o "$STAGE_DIR/$file"; then
                 warn "Optional release file is unavailable: $file"
                 rm -f -- "$STAGE_DIR/$file"
             fi
         done
         if curl --fail --silent --show-error --location --retry 3 --connect-timeout 20 \
-            --proto '=https' --tlsv1.2 "$base_url/SHA256SUMS" -o "$STAGE_DIR/SHA256SUMS"; then
+            "${CURL_AUTH_ARGS[@]}" --proto '=https' --tlsv1.2 "$base_url/SHA256SUMS" -o "$STAGE_DIR/SHA256SUMS"; then
             (cd "$STAGE_DIR" && sha256sum -c SHA256SUMS --ignore-missing) || die "Release checksum verification failed"
         else
             warn "SHA256SUMS is unavailable; continuing with pinned HTTPS tag"
@@ -823,6 +845,7 @@ main() {
     install_packages
     select_python
     ensure_service_user
+    load_github_token
     download_release
 
     local release_id
