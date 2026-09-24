@@ -20,6 +20,10 @@ curl -fsSL https://raw.githubusercontent.com/IndeecDen/megapbx-tg/megapbx-tg-v0.
 
 Если репозиторий закрыт, скачайте installer с PAT формата `Authorization: Bearer ...` и передайте путь к файлу PAT через `--github-token-file`; анонимный raw URL для private-репозитория недоступен по умолчанию.
 
+```bash
+sudo bash /tmp/megapbx-tg-install.sh --github-token-file /root/.megapbx-github-token
+```
+
 Установщик запросит:
 
 - Telegram bot token;
