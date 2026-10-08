@@ -18,12 +18,6 @@
 curl -fsSL https://raw.githubusercontent.com/IndeecDen/megapbx-tg/megapbx-tg-v0.1.1/install.sh -o /tmp/megapbx-tg-install.sh && sudo bash /tmp/megapbx-tg-install.sh
 ```
 
-Если репозиторий закрыт, скачайте installer с PAT формата `Authorization: Bearer ...` и передайте путь к файлу PAT через `--github-token-file`; анонимный raw URL для private-репозитория недоступен по умолчанию.
-
-```bash
-sudo bash /tmp/megapbx-tg-install.sh --github-token-file /root/.megapbx-github-token
-```
-
 Установщик запросит:
 
 - Telegram bot token;
@@ -33,7 +27,7 @@ sudo bash /tmp/megapbx-tg-install.sh --github-token-file /root/.megapbx-github-t
 - URL и API-токен MegaPBX (если нужны имена сотрудников и групп);
 - домен и параметры reverse proxy/TLS (если выбран Nginx).
 
-Секреты вводятся без отображения и не публикуются в GitHub.
+Секреты вводятся без отображения и сохраняются только в `/etc/megapbx-tg.env`; installer не добавляет их в репозиторий.
 
 ## Проверка после установки
 
